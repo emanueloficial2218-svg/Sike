@@ -1,6 +1,6 @@
 -- ==========================================================
--- V15 SIKE — PAINEL DE TESTE ANTI-CHEAT
--- Aimbot com Team Check (só pega inimigos)
+-- V16 SIKE — PAINEL DE TESTE ANTI-CHEAT
+-- Aimbot + ESP com Team Check
 -- ==========================================================
 
 local Players          = game:GetService("Players")
@@ -27,6 +27,7 @@ local S = {
     ESPHealth       = false,
     ESPLine         = false,
     ESPTeam         = true,
+    ESPTeamCheck    = false,
     ESPColor        = Color3.fromRGB(255, 60, 60),
 
     Speed           = false,
@@ -50,7 +51,7 @@ local keybindAtual = nil
 
 -- ===================== UI BASE =====================
 local gui = Instance.new("ScreenGui")
-gui.Name = "V15SIKE"
+gui.Name = "V16SIKE"
 gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -81,7 +82,7 @@ fovStroke.Color = Color3.fromRGB(255, 60, 60)
 fovStroke.Transparency = 0.2
 fovStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
--- ===================== BOTÃO MENU FLUTUANTE =====================
+-- ===================== BOTÃO MENU =====================
 local menuBtn = Instance.new("TextButton")
 menuBtn.Name = "MenuButton"
 menuBtn.Size = UDim2.new(0, 90, 0, 40)
@@ -140,7 +141,7 @@ local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, -80, 1, 0)
 title.Position = UDim2.new(0, 15, 0, 0)
 title.BackgroundTransparency = 1
-title.Text = "V15 SIKE"
+title.Text = "V16 SIKE"
 title.TextColor3 = Color3.fromRGB(255, 80, 80)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 16
@@ -379,9 +380,9 @@ local function dropdown(pagina, nome, opcoes, default, callback)
 end
 
 -- ==========================================================
--- TOGGLE COM KEYBIND EXPANSÍVEL
+-- TOGGLE COM KEYBIND
 -- ==========================================================
-local function toggleComKeybind(pagina, nome, keyAtivo, keyTecla, callbackAtivo, callbackTecla, padrao)
+local function toggleComKeybind(pagina, nome, keyAtivo, keyTecla, padrao)
     if padrao ~= nil then S[keyAtivo] = padrao end
 
     local container = Instance.new("Frame")
@@ -450,7 +451,6 @@ local function toggleComKeybind(pagina, nome, keyAtivo, keyTecla, callbackAtivo,
         btn.BackgroundColor3 = S[keyAtivo] and Color3.fromRGB(60, 130, 80) or Color3.fromRGB(38, 38, 52)
         submenu.Visible = S[keyAtivo]
         atualizarTamanho()
-        if callbackAtivo then callbackAtivo(S[keyAtivo]) end
     end)
 
     btnKey.MouseButton1Click:Connect(function()
@@ -461,10 +461,6 @@ local function toggleComKeybind(pagina, nome, keyAtivo, keyTecla, callbackAtivo,
 
     submenu.Visible = S[keyAtivo]
     atualizarTamanho()
-
-    return function()
-        btnKey.Text = S[keyTecla].Name
-    end
 end
 
 -- ==========================================================
@@ -580,7 +576,7 @@ Mouse.Button1Down:Connect(function()
 end)
 
 -- ==========================================================
--- AIMBOT (com Wall Check + Team Check)
+-- AIMBOT
 -- ==========================================================
 local function estaVisivel(parteAlvo)
     if not parteAlvo then return false end
@@ -621,12 +617,10 @@ local function getClosest()
             if part and hum and hum.Health > 0 then
                 local podePegar = true
 
-                -- Team Check
                 if S.AimbotTeamCheck and mesmoTime(LP, p) then
                     podePegar = false
                 end
 
-                -- Wall Check
                 if podePegar and S.AimbotVisivel then
                     podePegar = estaVisivel(part)
                 end
@@ -791,7 +785,15 @@ task.spawn(function()
                         local feetScreen, feetOn = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
                         local onScreen = headOn and rootOn and feetOn
 
-                        if onScreen then
+                        -- TEAM CHECK NO ESP
+                        local ehMesmoTime = false
+                        if S.ESPTeamCheck and p2 then
+                            if LP.Team and p2.Team and LP.Team == p2.Team then
+                                ehMesmoTime = true
+                            end
+                        end
+
+                        if onScreen and not ehMesmoTime then
                             local altura = math.abs(feetScreen.Y - headScreen.Y)
                             local largura = altura * 0.55
                             local cx = rootScreen.X
@@ -866,33 +868,34 @@ end)
 -- ==========================================================
 -- PÁGINA: ESP
 -- ==========================================================
-toggle(pagESP, "Ativar ESP (Master)", "ESP",       nil, false)
-toggle(pagESP, "Mostrar Box",         "ESPBox",    nil, false)
-toggle(pagESP, "Mostrar Nome",        "ESPName",   nil, false)
-toggle(pagESP, "Mostrar Vida",        "ESPHealth", nil, false)
-toggle(pagESP, "Mostrar Line",        "ESPLine",   nil, false)
-toggle(pagESP, "Cor do Time",         "ESPTeam",   nil, true)
+toggle(pagESP, "Ativar ESP (Master)",       "ESP",          nil, false)
+toggle(pagESP, "Mostrar Box",               "ESPBox",       nil, false)
+toggle(pagESP, "Mostrar Nome",              "ESPName",      nil, false)
+toggle(pagESP, "Mostrar Vida",              "ESPHealth",    nil, false)
+toggle(pagESP, "Mostrar Line",              "ESPLine",      nil, false)
+toggle(pagESP, "Cor do Time",               "ESPTeam",      nil, true)
+toggle(pagESP, "Team Check (só inimigos)",  "ESPTeamCheck", nil, false)
 
 -- ==========================================================
 -- PÁGINA: MOVEMENT
 -- ==========================================================
-toggleComKeybind(pagMove, "Speed Hack",  "Speed",    "SpeedKey",    nil, nil, false)
+toggleComKeybind(pagMove, "Speed Hack",  "Speed",    "SpeedKey",    false)
 slider(pagMove, "Speed Valor", 16, 500, 100, function(v) S.SpeedVal = v end)
 
-toggleComKeybind(pagMove, "Fly",         "Fly",      "FlyKey",      nil, nil, false)
+toggleComKeybind(pagMove, "Fly",         "Fly",      "FlyKey",      false)
 slider(pagMove, "Fly Velocidade", 20, 300, 60, function(v) S.FlySpeed = v end)
 
-toggleComKeybind(pagMove, "Noclip",      "Noclip",   "NoclipKey",   nil, nil, false)
+toggleComKeybind(pagMove, "Noclip",      "Noclip",   "NoclipKey",   false)
 
-toggleComKeybind(pagMove, "Teleport com Mouse", "Teleport", "TeleportKey", nil, nil, false)
+toggleComKeybind(pagMove, "Teleport com Mouse", "Teleport", "TeleportKey", false)
 
 -- ==========================================================
 -- PÁGINA: MISC
 -- ==========================================================
 local info = Instance.new("TextLabel")
-info.Size = UDim2.new(1, -8, 0, 180)
+info.Size = UDim2.new(1, -8, 0, 200)
 info.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
-info.Text = "V15 SIKE\n\nAimbot = botão DIREITO do mouse\nTeam Check: só trava em inimigos\nWall Check: só trava quem tá visível\nKeybind: clique na tecla e aperte nova\n\nInsert = mostra/esconde painel"
+info.Text = "V16 SIKE\n\nAimbot = botão DIREITO do mouse\nTeam Check (Aimbot): só trava em inimigos\nTeam Check (ESP): só mostra inimigos\nWall Check: só trava quem tá visível\nKeybind: clique na tecla e aperte nova\n\nInsert = mostra/esconde painel"
 info.TextColor3 = Color3.fromRGB(255, 120, 120)
 info.Font = Enum.Font.Gotham
 info.TextSize = 12
@@ -908,4 +911,4 @@ pagAimbot.Visible = true
 abasBotoes["🎯 Aimbot"].BackgroundColor3 = Color3.fromRGB(140, 60, 60)
 abasBotoes["🎯 Aimbot"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
-print("[V15 SIKE] Carregado! Team Check adicionado no Aimbot.")
+print("[V16 SIKE] Carregado! Team Check no ESP adicionado.")
