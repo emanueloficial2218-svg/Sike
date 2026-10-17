@@ -1,6 +1,6 @@
 -- ==========================================================
--- V16 SIKE — PAINEL DE TESTE ANTI-CHEAT
--- Aimbot + ESP com Team Check
+-- V20 SIKE — PAINEL DE TESTE ANTI-CHEAT
+-- Hitbox Expander com destaque vermelho forte
 -- ==========================================================
 
 local Players          = game:GetService("Players")
@@ -14,12 +14,19 @@ local Mouse            = LP:GetMouse()
 -- ===================== ESTADO =====================
 local S = {
     Aimbot          = false,
+    AimbotAuto      = false,
+    AimbotBotaoDir  = true,
     AimbotFOV       = 250,
     AimbotSmooth    = 1,
     AimbotPart      = "Head",
     MostrarFOV      = false,
     AimbotVisivel   = true,
     AimbotTeamCheck = true,
+    AimbotUniversal = true,
+
+    Hitbox          = false,
+    HitboxSize      = 1,
+    HitboxCor       = false,
 
     ESP             = false,
     ESPBox          = false,
@@ -51,7 +58,7 @@ local keybindAtual = nil
 
 -- ===================== UI BASE =====================
 local gui = Instance.new("ScreenGui")
-gui.Name = "V16SIKE"
+gui.Name = "V20SIKE"
 gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -106,8 +113,8 @@ btnStroke.Transparency = 0.2
 
 -- Painel principal
 local main = Instance.new("Frame")
-main.Size = UDim2.new(0, 540, 0, 420)
-main.Position = UDim2.new(0.5, -270, 0.5, -210)
+main.Size = UDim2.new(0, 540, 0, 440)
+main.Position = UDim2.new(0.5, -270, 0.5, -220)
 main.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
 main.BorderSizePixel = 0
 main.Active = true
@@ -141,7 +148,7 @@ local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, -80, 1, 0)
 title.Position = UDim2.new(0, 15, 0, 0)
 title.BackgroundTransparency = 1
-title.Text = "V16 SIKE"
+title.Text = "V20 SIKE"
 title.TextColor3 = Color3.fromRGB(255, 80, 80)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 16
@@ -219,6 +226,7 @@ end
 
 local pagAimbot  = criarPagina("Aimbot")
 local pagESP     = criarPagina("ESP")
+local pagHitbox  = criarPagina("Hitbox")
 local pagMove    = criarPagina("Movement")
 local pagMisc    = criarPagina("Misc")
 
@@ -252,6 +260,7 @@ end
 
 criarAba("🎯 Aimbot",   pagAimbot)
 criarAba("👁 ESP",      pagESP)
+criarAba("📦 Hitbox",   pagHitbox)
 criarAba("🏃 Movement", pagMove)
 criarAba("⚙ Misc",      pagMisc)
 
@@ -517,7 +526,7 @@ end)
 
 RunService.Heartbeat:Connect(function()
     local char = LP.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local hrp = char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChildWhichIsA("BasePart"))
     if not hrp then return end
 
     local bv = hrp:FindFirstChild("__FlyBV")
@@ -569,14 +578,95 @@ end)
 Mouse.Button1Down:Connect(function()
     if not S.Teleport then return end
     local hit = Mouse.Hit
-    local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+    local char = LP.Character
+    local hrp = char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChildWhichIsA("BasePart"))
     if hrp and hit then
         hrp.CFrame = hit + Vector3.new(0, 3, 0)
     end
 end)
 
 -- ==========================================================
--- AIMBOT
+-- HITBOX EXPANDER (corrigido: vermelho forte e permanente)
+-- ==========================================================
+local hitboxOriginal = {}
+
+local function aplicarHitbox(char)
+    if not char then return end
+    local head = char:FindFirstChild("Head")
+    if not head or not head:IsA("BasePart") then return end
+
+    -- Salva o tamanho original na primeira vez
+    if not hitboxOriginal[head] then
+        hitboxOriginal[head] = {
+            size = head.Size,
+            transparency = head.Transparency,
+            color = head.Color,
+            material = head.Material,
+        }
+    end
+
+    local orig = hitboxOriginal[head]
+
+    if S.Hitbox then
+        -- Aumenta a Head baseado no slider
+        head.Size = orig.size * S.HitboxSize
+
+        -- Efeitos visuais (vermelho FORTE e PERMANENTE)
+        if S.HitboxCor then
+            head.Transparency = 0.1               -- quase sólido
+            head.Color = Color3.fromRGB(255, 0, 0) -- vermelho puro
+            head.Material = Enum.Material.Neon     -- brilho neon
+        else
+            head.Transparency = 0.3
+        end
+
+        head.CanCollide = false
+        head.Massless = true
+    else
+        -- Restaura tudo
+        head.Size = orig.size
+        head.Transparency = orig.transparency
+        head.Color = orig.color
+        head.Material = orig.material
+        head.CanCollide = true
+        head.Massless = false
+    end
+end
+
+local function resetarTodosHitbox()
+    for head, orig in pairs(hitboxOriginal) do
+        if head and head.Parent then
+            head.Size = orig.size
+            head.Transparency = orig.transparency
+            head.Color = orig.color
+            head.Material = orig.material
+            head.CanCollide = true
+            head.Massless = false
+        end
+    end
+    hitboxOriginal = {}
+end
+
+-- Loop principal do Hitbox (RÁPIDO pra manter o vermelho)
+task.spawn(function()
+    local estavaAtivo = false
+    while task.wait(0.05) do   -- 20x por segundo — não deixa piscar
+        if S.Hitbox then
+            for _, p in ipairs(Players:GetPlayers()) do
+                if p ~= LP and p.Character then
+                    aplicarHitbox(p.Character)
+                end
+            end
+            estavaAtivo = true
+        elseif estavaAtivo then
+            resetarTodosHitbox()
+            estavaAtivo = false
+        end
+    end
+end)
+
+-- ==========================================================
+-- AIMBOT UNIVERSAL
 -- ==========================================================
 local function estaVisivel(parteAlvo)
     if not parteAlvo then return false end
@@ -604,6 +694,47 @@ local function mesmoTime(p1, p2)
     return p1.Team == p2.Team
 end
 
+local function acharParteAlvo(char, nomeParte)
+    if not char then return nil end
+
+    local parte = char:FindFirstChild(nomeParte)
+    if parte and parte:IsA("BasePart") then return parte end
+
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum and hum.RootPart then return hum.RootPart end
+
+    local prioridades = {
+        "Head", "UpperTorso", "LowerTorso", "HumanoidRootPart",
+        "Torso", "Chest", "Pelvis", "Spine", "Hips",
+        "Hitbox", "HitBox", "hitbox",
+        "TargetPart", "target", "Target",
+        "RootPart", "Root", "root",
+        "Core", "Body", "BodyPart",
+    }
+    for _, nome in ipairs(prioridades) do
+        local p = char:FindFirstChild(nome)
+        if p and p:IsA("BasePart") then return p end
+    end
+
+    for _, obj in ipairs(char:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Name ~= "Handle" then
+            local nome = obj.Name:lower()
+            if not nome:find("hat") and not nome:find("accessory")
+               and not nome:find("weld") and not nome:find("tool") then
+                if obj.Transparency < 0.9 then
+                    return obj
+                end
+            end
+        end
+    end
+
+    for _, obj in ipairs(char:GetDescendants()) do
+        if obj:IsA("BasePart") then return obj end
+    end
+
+    return nil
+end
+
 local function getClosest()
     local centroX = Camera.ViewportSize.X / 2
     local centroY = Camera.ViewportSize.Y / 2
@@ -611,25 +742,36 @@ local function getClosest()
 
     local closest, dist = nil, raio
     for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LP and p.Character then
-            local part = p.Character:FindFirstChild(S.AimbotPart)
-            local hum  = p.Character:FindFirstChildOfClass("Humanoid")
-            if part and hum and hum.Health > 0 then
-                local podePegar = true
+        if p ~= LP and p.Character and p.Character.Parent then
+            local hum = p.Character:FindFirstChildOfClass("Humanoid")
+            local temAlvo = hum or p.Character:FindFirstChildWhichIsA("BasePart")
 
-                if S.AimbotTeamCheck and mesmoTime(LP, p) then
-                    podePegar = false
-                end
+            if temAlvo then
+                local podeMirar = true
+                if hum and hum.Health <= 0 then podeMirar = false end
 
-                if podePegar and S.AimbotVisivel then
-                    podePegar = estaVisivel(part)
-                end
+                if podeMirar then
+                    local part
+                    if S.AimbotUniversal then
+                        part = acharParteAlvo(p.Character, S.AimbotPart)
+                    else
+                        part = p.Character:FindFirstChild(S.AimbotPart)
+                        if not (part and part:IsA("BasePart")) then part = nil end
+                    end
 
-                if podePegar then
-                    local sp, onScreen = Camera:WorldToViewportPoint(part.Position)
-                    if onScreen then
-                        local d = (Vector2.new(sp.X, sp.Y) - Vector2.new(centroX, centroY)).Magnitude
-                        if d < dist then dist = d; closest = part end
+                    if part then
+                        local podePegar = true
+
+                        if S.AimbotTeamCheck and mesmoTime(LP, p) then podePegar = false end
+                        if podePegar and S.AimbotVisivel then podePegar = estaVisivel(part) end
+
+                        if podePegar then
+                            local sp, onScreen = Camera:WorldToViewportPoint(part.Position)
+                            if onScreen then
+                                local d = (Vector2.new(sp.X, sp.Y) - Vector2.new(centroX, centroY)).Magnitude
+                                if d < dist then dist = d; closest = part end
+                            end
+                        end
                     end
                 end
             end
@@ -656,7 +798,13 @@ RunService.RenderStepped:Connect(function()
         else fovStroke.Color = Color3.fromRGB(255, 60, 60) end
     end
 
-    if alvo and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+    local deveTravar = false
+    if S.AimbotAuto then deveTravar = true end
+    if S.AimbotBotaoDir and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+        deveTravar = true
+    end
+
+    if alvo and deveTravar then
         local pos = Camera.CFrame.Position
         Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(pos, alvo.Position), S.AimbotSmooth)
     end
@@ -777,6 +925,10 @@ task.spawn(function()
                     local hrp = char:FindFirstChild("HumanoidRootPart")
                     local head = char:FindFirstChild("Head")
                     local hum = char:FindFirstChildOfClass("Humanoid")
+
+                    if not head then head = acharParteAlvo(char, "Head") end
+                    if not hrp then hrp = acharParteAlvo(char, "HumanoidRootPart") end
+
                     if hrp and head and hum then
                         local p2 = Players:GetPlayerFromCharacter(char) or obj.player
                         local corAtual = corDoTime(p2)
@@ -785,7 +937,6 @@ task.spawn(function()
                         local feetScreen, feetOn = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
                         local onScreen = headOn and rootOn and feetOn
 
-                        -- TEAM CHECK NO ESP
                         local ehMesmoTime = false
                         if S.ESPTeamCheck and p2 then
                             if LP.Team and p2.Team and LP.Team == p2.Team then
@@ -855,13 +1006,16 @@ end)
 -- ==========================================================
 -- PÁGINA: AIMBOT
 -- ==========================================================
-toggle(pagAimbot, "Ativar Aimbot (Botão Direito)", "Aimbot", nil, false)
+toggle(pagAimbot, "Ativar Aimbot (Master)",       "Aimbot",         nil, false)
+toggle(pagAimbot, "Aimbot Automático",            "AimbotAuto",     nil, false)
+toggle(pagAimbot, "Aimbot Botão Direito",         "AimbotBotaoDir", nil, true)
+toggle(pagAimbot, "Modo Universal (R6/R15/Custom)", "AimbotUniversal", nil, true)
 toggle(pagAimbot, "Mostrar Círculo FOV",           "MostrarFOV", nil, false)
 toggle(pagAimbot, "Wall Check (só pega visível)",  "AimbotVisivel", nil, true)
 toggle(pagAimbot, "Team Check (só inimigos)",      "AimbotTeamCheck", nil, true)
 slider(pagAimbot, "Tamanho FOV", 50, 800, 250, function(v) S.AimbotFOV = v end)
 slider(pagAimbot, "Suavidade", 1, 10, 1, function(v) S.AimbotSmooth = 1 / v end)
-dropdown(pagAimbot, "Parte do alvo", {"Head", "HumanoidRootPart", "UpperTorso"}, "Head", function(v)
+dropdown(pagAimbot, "Parte do alvo", {"Head", "HumanoidRootPart", "UpperTorso", "Torso", "Hitbox"}, "Head", function(v)
     S.AimbotPart = v
 end)
 
@@ -875,6 +1029,34 @@ toggle(pagESP, "Mostrar Vida",              "ESPHealth",    nil, false)
 toggle(pagESP, "Mostrar Line",              "ESPLine",      nil, false)
 toggle(pagESP, "Cor do Time",               "ESPTeam",      nil, true)
 toggle(pagESP, "Team Check (só inimigos)",  "ESPTeamCheck", nil, false)
+
+-- ==========================================================
+-- PÁGINA: HITBOX
+-- ==========================================================
+toggle(pagHitbox, "Ativar Hitbox Expander", "Hitbox", nil, false)
+slider(pagHitbox, "Tamanho Hitbox", 1, 20, 1, function(v)
+    S.HitboxSize = v
+    if S.Hitbox then
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LP and p.Character then
+                aplicarHitbox(p.Character)
+            end
+        end
+    end
+end)
+toggle(pagHitbox, "Destacar Cabeça (Vermelho Forte)", "HitboxCor", nil, false)
+
+local infoHitbox = Instance.new("TextLabel")
+infoHitbox.Size = UDim2.new(1, -8, 0, 140)
+infoHitbox.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
+infoHitbox.Text = "HITBOX EXPANDER\n\nAumenta a cabeça REAL dos players.\nTodos veem o tamanho aumentado.\n\nCom 'Destacar Cabeça': fica vermelho\nneon forte e permanente.\n\n→ Anti-cheat detecta fácil (Size da Head)"
+infoHitbox.TextColor3 = Color3.fromRGB(255, 120, 120)
+infoHitbox.Font = Enum.Font.Gotham
+infoHitbox.TextSize = 11
+infoHitbox.TextWrapped = true
+infoHitbox.ZIndex = 13
+infoHitbox.Parent = pagHitbox
+Instance.new("UICorner", infoHitbox).CornerRadius = UDim.new(0, 6)
 
 -- ==========================================================
 -- PÁGINA: MOVEMENT
@@ -893,9 +1075,9 @@ toggleComKeybind(pagMove, "Teleport com Mouse", "Teleport", "TeleportKey", false
 -- PÁGINA: MISC
 -- ==========================================================
 local info = Instance.new("TextLabel")
-info.Size = UDim2.new(1, -8, 0, 200)
+info.Size = UDim2.new(1, -8, 0, 240)
 info.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
-info.Text = "V16 SIKE\n\nAimbot = botão DIREITO do mouse\nTeam Check (Aimbot): só trava em inimigos\nTeam Check (ESP): só mostra inimigos\nWall Check: só trava quem tá visível\nKeybind: clique na tecla e aperte nova\n\nInsert = mostra/esconde painel"
+info.Text = "V20 SIKE\n\nAimbot (Auto + Botão Direito)\nESP (Box, Nome, Vida, Line)\nHitbox Expander (cabeça vermelha neon)\nMovement (Speed, Fly, Noclip, TP)\n\nInsert = mostra/esconde painel"
 info.TextColor3 = Color3.fromRGB(255, 120, 120)
 info.Font = Enum.Font.Gotham
 info.TextSize = 12
@@ -911,4 +1093,4 @@ pagAimbot.Visible = true
 abasBotoes["🎯 Aimbot"].BackgroundColor3 = Color3.fromRGB(140, 60, 60)
 abasBotoes["🎯 Aimbot"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
-print("[V16 SIKE] Carregado! Team Check no ESP adicionado.")
+print("[V20 SIKE] Carregado! Hitbox vermelho forte e permanente.")
